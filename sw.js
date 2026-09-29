@@ -1,4 +1,3 @@
-```js
 const CACHE_NAME = 'estate-offline-test-v1';
 
 
@@ -59,4 +58,3 @@ self.addEventListener('fetch', event => {
     );
 
 });
-```
