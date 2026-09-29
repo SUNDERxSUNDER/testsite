@@ -1,18 +1,19 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Офлайн-тест</title>
+    <title>Тест офлайн</title>
 
     <style>
         body {
             font-family: Arial, sans-serif;
             max-width: 600px;
-            margin: 50px auto;
+            margin: 40px auto;
             padding: 20px;
-            background: #f3f3f3;
+            background: #eee;
         }
 
         .box {
@@ -23,6 +24,7 @@
 
         button {
             padding: 12px 20px;
+            margin: 5px 0;
             cursor: pointer;
             border: 0;
             border-radius: 8px;
@@ -52,15 +54,17 @@
 
         #status {
             margin-top: 15px;
+            line-height: 1.5;
         }
 
-        .offline {
+        .ok {
             color: green;
             font-weight: bold;
         }
 
-        .online {
-            color: #555;
+        .error {
+            color: red;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -69,17 +73,17 @@
 
 <div class="box">
 
-    <h1>Аудиоспектакль</h1>
+    <h1>Тест офлайн-режима</h1>
 
     <p>
-        Это тестовая страница для проверки
-        работы сайта без интернета.
+        Сначала нажмите кнопку загрузки, затем полностью
+        закройте браузер, отключите интернет и снова откройте эту страницу.
     </p>
 
     <p id="connection"></p>
 
     <button id="download">
-        Загрузить для офлайн
+        Скачать для офлайн
     </button>
 
     <div class="progress">
@@ -87,7 +91,7 @@
     </div>
 
     <div id="status">
-        Офлайн-версия ещё не загружена.
+        Офлайн-версия не загружена.
     </div>
 
     <hr>
@@ -104,11 +108,11 @@
 
 <script>
 
-const CACHE_NAME = 'estate-offline-v2';
+const CACHE_NAME = 'estate-offline-test-v1';
 
 
 // --------------------------------------------------
-// Определяем папку сайта
+// Папка сайта
 // --------------------------------------------------
 
 const BASE = location.pathname.endsWith('/')
@@ -120,52 +124,30 @@ const BASE = location.pathname.endsWith('/')
 
 
 // --------------------------------------------------
-// Файлы, которые нужно скачать
+// Что сохраняем
 // --------------------------------------------------
 
-const files = [
+const FILES = [
     BASE + 'index.html',
     BASE + 'test.mp3'
 ];
 
 
-const downloadButton = document.getElementById('download');
-const progress = document.getElementById('progress');
-const status = document.getElementById('status');
-const connection = document.getElementById('connection');
+const downloadButton =
+    document.getElementById('download');
+
+const progress =
+    document.getElementById('progress');
+
+const status =
+    document.getElementById('status');
+
+const connection =
+    document.getElementById('connection');
 
 
 // --------------------------------------------------
-// Service Worker
-// --------------------------------------------------
-
-if ('serviceWorker' in navigator) {
-
-    navigator.serviceWorker.register(
-        BASE + 'sw.js',
-        {
-            scope: BASE
-        }
-    )
-    .then(() => {
-
-        console.log('Service Worker зарегистрирован');
-
-    })
-    .catch(error => {
-
-        console.error(
-            'Ошибка Service Worker:',
-            error
-        );
-
-    });
-
-}
-
-
-// --------------------------------------------------
-// Статус интернета
+// Интернет
 // --------------------------------------------------
 
 function updateConnection() {
@@ -175,14 +157,10 @@ function updateConnection() {
         connection.textContent =
             '● Интернет подключён';
 
-        connection.className = 'online';
-
     } else {
 
         connection.textContent =
-            '● ОФЛАЙН';
-
-        connection.className = 'offline';
+            '● ИНТЕРНЕТ ОТКЛЮЧЁН';
 
     }
 
@@ -202,53 +180,101 @@ window.addEventListener(
 
 
 // --------------------------------------------------
-// Проверяем, загружена ли офлайн-версия
+// Service Worker
 // --------------------------------------------------
 
-async function checkOffline() {
+async function registerServiceWorker() {
+
+    if (!('serviceWorker' in navigator)) {
+
+        status.innerHTML =
+            '<span class="error">' +
+            'Service Worker не поддерживается' +
+            '</span>';
+
+        return;
+
+    }
+
+    try {
+
+        await navigator.serviceWorker.register(
+            BASE + 'sw.js',
+            {
+                scope: BASE
+            }
+        );
+
+        console.log(
+            'Service Worker зарегистрирован'
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.innerHTML =
+            '<span class="error">' +
+            'Ошибка Service Worker: ' +
+            error.message +
+            '</span>';
+
+    }
+
+}
+
+registerServiceWorker();
+
+
+// --------------------------------------------------
+// Проверка уже скачанной версии
+// --------------------------------------------------
+
+async function checkCache() {
 
     try {
 
         const cache =
             await caches.open(CACHE_NAME);
 
-        const cachedIndex =
+        const index =
             await cache.match(
                 BASE + 'index.html'
             );
 
-        const cachedAudio =
+        const audio =
             await cache.match(
                 BASE + 'test.mp3'
             );
 
-        if (cachedIndex && cachedAudio) {
+        if (index && audio) {
 
             progress.style.width = '100%';
 
             status.innerHTML =
-                '<span class="offline">' +
-                '✓ Офлайн-версия загружена' +
+                '<span class="ok">' +
+                '✓ Офлайн-версия найдена' +
+                '<br>Страница и аудио сохранены.' +
                 '</span>';
+
+            downloadButton.textContent =
+                'Офлайн-версия уже загружена';
 
         }
 
     } catch (error) {
 
-        console.error(
-            'Ошибка проверки кэша:',
-            error
-        );
+        console.error(error);
 
     }
 
 }
 
-checkOffline();
+checkCache();
 
 
 // --------------------------------------------------
-// Загрузка офлайн-версии
+// Скачать
 // --------------------------------------------------
 
 downloadButton.addEventListener(
@@ -267,12 +293,21 @@ downloadButton.addEventListener(
             const cache =
                 await caches.open(CACHE_NAME);
 
-            let completed = 0;
+            for (
+                let i = 0;
+                i < FILES.length;
+                i++
+            ) {
 
-            for (const file of files) {
+                const file = FILES[i];
 
                 status.textContent =
-                    'Загрузка: ' + file;
+                    'Загрузка ' +
+                    (i + 1) +
+                    ' из ' +
+                    FILES.length +
+                    ': ' +
+                    file;
 
                 const response =
                     await fetch(file, {
@@ -282,11 +317,9 @@ downloadButton.addEventListener(
                 if (!response.ok) {
 
                     throw new Error(
-                        'Ошибка загрузки: ' +
                         file +
-                        ' (' +
-                        response.status +
-                        ')'
+                        ' → HTTP ' +
+                        response.status
                     );
 
                 }
@@ -296,13 +329,9 @@ downloadButton.addEventListener(
                     response.clone()
                 );
 
-                completed++;
-
                 const percent =
                     Math.round(
-                        completed /
-                        files.length *
-                        100
+                        ((i + 1) / FILES.length) * 100
                     );
 
                 progress.style.width =
@@ -310,28 +339,51 @@ downloadButton.addEventListener(
             }
 
 
-            localStorage.setItem(
-                'offlineReady',
-                '1'
-            );
+            // Дополнительная проверка
+            const index =
+                await cache.match(
+                    BASE + 'index.html'
+                );
+
+            const audio =
+                await cache.match(
+                    BASE + 'test.mp3'
+                );
 
 
-            progress.style.width =
-                '100%';
+            if (!index || !audio) {
+
+                throw new Error(
+                    'Файлы не найдены в кэше после загрузки'
+                );
+
+            }
+
 
             status.innerHTML =
-                '<span class="offline">' +
-                '✓ Всё загружено. ' +
-                'Страница и аудио доступны без интернета.' +
+                '<span class="ok">' +
+                '✓ ВСЁ ГОТОВО' +
+                '<br><br>' +
+                'Страница и аудио сохранены.' +
+                '<br>' +
+                'Теперь можно закрыть браузер.' +
+                '<br>' +
+                'После отключения интернета сайт должен открыться снова.' +
                 '</span>';
+
+            downloadButton.textContent =
+                'Офлайн-версия готова';
+
 
         } catch (error) {
 
             console.error(error);
 
-            status.textContent =
-                'Ошибка загрузки: ' +
-                error.message;
+            status.innerHTML =
+                '<span class="error">' +
+                'Ошибка: ' +
+                error.message +
+                '</span>';
 
             downloadButton.disabled = false;
 
@@ -344,3 +396,4 @@ downloadButton.addEventListener(
 
 </body>
 </html>
+```
