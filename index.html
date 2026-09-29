@@ -104,12 +104,31 @@
 
 <script>
 
-const CACHE_NAME = 'estate-offline-v1';
+const CACHE_NAME = 'estate-offline-v2';
+
+
+// --------------------------------------------------
+// Определяем папку сайта
+// --------------------------------------------------
+
+const BASE = location.pathname.endsWith('/')
+    ? location.pathname
+    : location.pathname.substring(
+        0,
+        location.pathname.lastIndexOf('/') + 1
+    );
+
+
+// --------------------------------------------------
+// Файлы, которые нужно скачать
+// --------------------------------------------------
 
 const files = [
-    '/',
-    '/index.html'
+    BASE,
+    BASE + 'index.html',
+    BASE + 'test.mp3'
 ];
+
 
 const downloadButton = document.getElementById('download');
 const progress = document.getElementById('progress');
@@ -123,13 +142,25 @@ const connection = document.getElementById('connection');
 
 if ('serviceWorker' in navigator) {
 
-    navigator.serviceWorker.register('/sw.js')
-        .then(() => {
-            console.log('Service Worker зарегистрирован');
-        })
-        .catch(error => {
-            console.error('Ошибка Service Worker:', error);
-        });
+    navigator.serviceWorker.register(
+        BASE + 'sw.js',
+        {
+            scope: BASE
+        }
+    )
+    .then(() => {
+
+        console.log('Service Worker зарегистрирован');
+
+    })
+    .catch(error => {
+
+        console.error(
+            'Ошибка Service Worker:',
+            error
+        );
+
+    });
 
 }
 
@@ -142,12 +173,16 @@ function updateConnection() {
 
     if (navigator.onLine) {
 
-        connection.textContent = '● Интернет подключён';
+        connection.textContent =
+            '● Интернет подключён';
+
         connection.className = 'online';
 
     } else {
 
-        connection.textContent = '● ОФЛАЙН';
+        connection.textContent =
+            '● ОФЛАЙН';
+
         connection.className = 'offline';
 
     }
@@ -156,8 +191,15 @@ function updateConnection() {
 
 updateConnection();
 
-window.addEventListener('online', updateConnection);
-window.addEventListener('offline', updateConnection);
+window.addEventListener(
+    'online',
+    updateConnection
+);
+
+window.addEventListener(
+    'offline',
+    updateConnection
+);
 
 
 // --------------------------------------------------
@@ -166,14 +208,38 @@ window.addEventListener('offline', updateConnection);
 
 async function checkOffline() {
 
-    const cache = await caches.open(CACHE_NAME);
+    try {
 
-    const cached = await cache.match('/index.html');
+        const cache =
+            await caches.open(CACHE_NAME);
 
-    if (cached) {
+        const cachedIndex =
+            await cache.match(
+                BASE + 'index.html'
+            );
 
-        status.innerHTML =
-            '<span class="offline">✓ Офлайн-версия загружена</span>';
+        const cachedAudio =
+            await cache.match(
+                BASE + 'test.mp3'
+            );
+
+        if (cachedIndex && cachedAudio) {
+
+            progress.style.width = '100%';
+
+            status.innerHTML =
+                '<span class="offline">' +
+                '✓ Офлайн-версия загружена' +
+                '</span>';
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            'Ошибка проверки кэша:',
+            error
+        );
 
     }
 
@@ -183,73 +249,97 @@ checkOffline();
 
 
 // --------------------------------------------------
-// Загрузка
+// Загрузка офлайн-версии
 // --------------------------------------------------
 
-downloadButton.addEventListener('click', async () => {
+downloadButton.addEventListener(
+    'click',
+    async () => {
 
-    downloadButton.disabled = true;
+        downloadButton.disabled = true;
 
-    status.textContent = 'Начинаем загрузку...';
-
-    try {
-
-        const cache = await caches.open(CACHE_NAME);
-
-        let completed = 0;
-
-        for (const file of files) {
-
-            status.textContent =
-                'Загрузка: ' + file;
-
-            const response = await fetch(file);
-
-            if (!response.ok) {
-                throw new Error(
-                    'Ошибка загрузки: ' + file
-                );
-            }
-
-            await cache.put(file, response.clone());
-
-            completed++;
-
-            const percent =
-                Math.round(
-                    completed / files.length * 100
-                );
-
-            progress.style.width = percent + '%';
-        }
-
-
-        localStorage.setItem(
-            'offlineReady',
-            '1'
-        );
-
-
-        progress.style.width = '100%';
-
-        status.innerHTML =
-            '<span class="offline">' +
-            '✓ Всё загружено. Страница доступна без интернета.' +
-            '</span>';
-
-
-    } catch (error) {
-
-        console.error(error);
+        progress.style.width = '0%';
 
         status.textContent =
-            'Ошибка загрузки: ' + error.message;
+            'Начинаем загрузку...';
 
-        downloadButton.disabled = false;
+        try {
+
+            const cache =
+                await caches.open(CACHE_NAME);
+
+            let completed = 0;
+
+            for (const file of files) {
+
+                status.textContent =
+                    'Загрузка: ' + file;
+
+                const response =
+                    await fetch(file, {
+                        cache: 'no-cache'
+                    });
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        'Ошибка загрузки: ' +
+                        file +
+                        ' (' +
+                        response.status +
+                        ')'
+                    );
+
+                }
+
+                await cache.put(
+                    file,
+                    response.clone()
+                );
+
+                completed++;
+
+                const percent =
+                    Math.round(
+                        completed /
+                        files.length *
+                        100
+                    );
+
+                progress.style.width =
+                    percent + '%';
+            }
+
+
+            localStorage.setItem(
+                'offlineReady',
+                '1'
+            );
+
+
+            progress.style.width =
+                '100%';
+
+            status.innerHTML =
+                '<span class="offline">' +
+                '✓ Всё загружено. ' +
+                'Страница и аудио доступны без интернета.' +
+                '</span>';
+
+        } catch (error) {
+
+            console.error(error);
+
+            status.textContent =
+                'Ошибка загрузки: ' +
+                error.message;
+
+            downloadButton.disabled = false;
+
+        }
 
     }
-
-});
+);
 
 </script>
 
