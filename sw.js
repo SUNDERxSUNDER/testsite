@@ -1,4 +1,5 @@
-const CACHE_NAME = 'estate-offline-v1';
+const CACHE_NAME = 'estate-offline-v2';
+
 
 self.addEventListener('install', event => {
 
@@ -23,21 +24,29 @@ self.addEventListener('fetch', event => {
         caches.match(event.request)
             .then(cachedResponse => {
 
-                // Есть сохранённая версия
+                // Если файл уже скачан —
+                // отдаём его из кэша
                 if (cachedResponse) {
                     return cachedResponse;
                 }
 
-                // Если нет — пытаемся получить из интернета
+                // Иначе пытаемся получить из интернета
                 return fetch(event.request);
 
             })
             .catch(() => {
 
-                // Если пользователь открыл страницу без интернета
+                // Если интернета нет и открывается
+                // страница — отдаём сохранённый index.html
+
                 if (event.request.mode === 'navigate') {
 
-                    return caches.match('/index.html');
+                    return caches.match(
+                        new URL(
+                            './index.html',
+                            self.registration.scope
+                        ).href
+                    );
 
                 }
 
