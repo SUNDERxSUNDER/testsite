@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Офлайн-тест</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f3f3f3;
+        }
+
+        .box {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+        }
+
+        button {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: 0;
+            border-radius: 8px;
+            background: #222;
+            color: white;
+            font-size: 16px;
+        }
+
+        button:disabled {
+            opacity: .5;
+        }
+
+        .progress {
+            margin-top: 20px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0;
+            height: 100%;
+            background: #4caf50;
+            transition: width .2s;
+        }
+
+        #status {
+            margin-top: 15px;
+        }
+
+        .offline {
+            color: green;
+            font-weight: bold;
+        }
+
+        .online {
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+
+    <h1>Аудиоспектакль</h1>
+
+    <p>
+        Это тестовая страница для проверки
+        работы сайта без интернета.
+    </p>
+
+    <p id="connection"></p>
+
+    <button id="download">
+        Загрузить для офлайн
+    </button>
+
+    <div class="progress">
+        <div class="progress-bar" id="progress"></div>
+    </div>
+
+    <div id="status">
+        Офлайн-версия ещё не загружена.
+    </div>
+
+    <hr>
+
+    <h2>Аудио</h2>
+
+    <audio controls>
+        <source src="audio/test.mp3" type="audio/mpeg">
+        Ваш браузер не поддерживает audio.
+    </audio>
+
+</div>
+
+
+<script>
+
+const CACHE_NAME = 'estate-offline-v1';
+
+const files = [
+    '/',
+    '/index.html'
+];
+
+const downloadButton = document.getElementById('download');
+const progress = document.getElementById('progress');
+const status = document.getElementById('status');
+const connection = document.getElementById('connection');
+
+
+// --------------------------------------------------
+// Service Worker
+// --------------------------------------------------
+
+if ('serviceWorker' in navigator) {
+
+    navigator.serviceWorker.register('/sw.js')
+        .then(() => {
+            console.log('Service Worker зарегистрирован');
+        })
+        .catch(error => {
+            console.error('Ошибка Service Worker:', error);
+        });
+
+}
+
+
+// --------------------------------------------------
+// Статус интернета
+// --------------------------------------------------
+
+function updateConnection() {
+
+    if (navigator.onLine) {
+
+        connection.textContent = '● Интернет подключён';
+        connection.className = 'online';
+
+    } else {
+
+        connection.textContent = '● ОФЛАЙН';
+        connection.className = 'offline';
+
+    }
+
+}
+
+updateConnection();
+
+window.addEventListener('online', updateConnection);
+window.addEventListener('offline', updateConnection);
+
+
+// --------------------------------------------------
+// Проверяем, загружена ли офлайн-версия
+// --------------------------------------------------
+
+async function checkOffline() {
+
+    const cache = await caches.open(CACHE_NAME);
+
+    const cached = await cache.match('/index.html');
+
+    if (cached) {
+
+        status.innerHTML =
+            '<span class="offline">✓ Офлайн-версия загружена</span>';
+
+    }
+
+}
+
+checkOffline();
+
+
+// --------------------------------------------------
+// Загрузка
+// --------------------------------------------------
+
+downloadButton.addEventListener('click', async () => {
+
+    downloadButton.disabled = true;
+
+    status.textContent = 'Начинаем загрузку...';
+
+    try {
+
+        const cache = await caches.open(CACHE_NAME);
+
+        let completed = 0;
+
+        for (const file of files) {
+
+            status.textContent =
+                'Загрузка: ' + file;
+
+            const response = await fetch(file);
+
+            if (!response.ok) {
+                throw new Error(
+                    'Ошибка загрузки: ' + file
+                );
+            }
+
+            await cache.put(file, response.clone());
+
+            completed++;
+
+            const percent =
+                Math.round(
+                    completed / files.length * 100
+                );
+
+            progress.style.width = percent + '%';
+        }
+
+
+        localStorage.setItem(
+            'offlineReady',
+            '1'
+        );
+
+
+        progress.style.width = '100%';
+
+        status.innerHTML =
+            '<span class="offline">' +
+            '✓ Всё загружено. Страница доступна без интернета.' +
+            '</span>';
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            'Ошибка загрузки: ' + error.message;
+
+        downloadButton.disabled = false;
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
