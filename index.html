@@ -99,7 +99,7 @@
     <h2>Аудио</h2>
 
     <audio controls>
-        <source src="./test.mp3" type="audio/mpeg">
+        <source src="./bh.mp3" type="audio/mpeg">
         Ваш браузер не поддерживает audio.
     </audio>
 
@@ -129,7 +129,7 @@ const BASE = location.pathname.endsWith('/')
 
 const FILES = [
     BASE + 'index.html',
-    BASE + 'test.mp3'
+    BASE + 'bh.mp3'
 ];
 
 
@@ -244,7 +244,7 @@ async function checkCache() {
 
         const audio =
             await cache.match(
-                BASE + 'test.mp3'
+                BASE + 'bh.mp3'
             );
 
         if (index && audio) {
@@ -347,7 +347,7 @@ downloadButton.addEventListener(
 
             const audio =
                 await cache.match(
-                    BASE + 'test.mp3'
+                    BASE + 'bh.mp3'
                 );
 
 
